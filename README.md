@@ -998,3 +998,157 @@ IO.binwrite file, "hello world"
 File.close file
 File.read "my-file.md" #=> {:ok, "hello world"}
 ```
+
+## Path
+---
+
+- `Path.join` => joins
+- `Path.expand("~/hello")` => expand full path
+
+## Process, Tasks and Agents
+---
+
+Process in Elixir has the same concept as threads in a lot of other languages,  but extremely lightweight in terms of memory and CPU. They are isolated from each other and communicate via message passing.
+- `spawn/1` => fork a process
+- `self()` => current process
+- `Process.alive?(pid)` => check if process is still alive
+- `send/2` => send message to another process
+- `receive/1` => receive message from another process
+- `after` => receive option to work with after timetout.
+- `flush()` => prints out all messages received
+- `spawn_link/1` => forks a process and link them , so failures are proagated.
+- `Task.start/1`= > Starts a task
+- `Task.start_link/1` => starts a task and links them to current process
+- `Process.register(pid, :foo)` => register a name for a process
+
+The idea is to have a supervisor that `spawn_link` new processes and when they fail the supervisor will restart them.
+This is the basics for **Fail Fast** and Fault **Tolerant** in Elixir.
+
+Tasks are used in supervision trees.
+```elixir 
+parent = self()
+
+spawn_link(fn -> send(parent, {:hello, self()}) end)
+receive do: ({msg, pid} -> "#{inspect pid} => #{msg}"), after: (1_000 -> "nothing after 1s")
+
+Task.start_link(fn -> send(parent, {:hello, self()}) end)
+receive do: ({msg, pid} -> "#{inspect pid} => #{msg}"), after: (1_000 -> "nothing after 1s")
+
+flush()
+```
+
+```elixir 
+
+```
+
+**State** can be stored in processes or using its abstraction: `Agent`.
+
+Manual implementation of a storage using Elixir Processes:
+```elixir
+defmodule KV do
+  def start_link do
+    Task.start_link(fn -> loop(%{}) end)
+  end
+
+  defp loop(map) do
+    receive do
+      {:get, key, caller} ->
+        send caller, Map.get(map, key)
+        loop(map)
+      {:put, key, value} ->
+        loop(Map.put(map, key, value))
+    end
+  end
+end
+{:ok, pid} = KV.start_link
+
+send pid, {:put, :hello, :world}
+send pid, {:get, :hello, self()}
+flush() #=> :world
+```
+
+Implementation of a storage using `Agent`:
+```elixir
+{:ok, pid} = Agent.start_link(fn -> %{} end)
+Agent.update(pid, fn map -> Map.put(map, :hello, :world) end)
+Agent.get(pid, fn map -> Map.get(map, :hello) end)
+```
+
+## alias, require, import and use
+---
+
+In order to facilitate code reuse Elixir has: `alias`, `require`, `import` (directives) and `use` (macro).
+  - `alias Foo.Bar, as: Bar` => alias module, so Bar can be called instead of Foo.Bar
+  - `alias Foo.Bar` => `as` is optional on alias
+  - `require Foo` =>  requires and import functions from Foo so they can be called without the `Foo.` prefix
+  - `import List, only: [duplicate: 2]` => only option
+  - `import List, expect: [duplicate: 2]` => except option
+  - `import List, only: :macros ` => import only macros
+  - `import List, only: :functions` => import only functions
+  - `use Foo` =>  invokes the custom code defined in Foo as an extension point
+  - `alias MyApp.{Foo, Bar, Baz} ` => multiple aliases
+  - `require MyApp.{Foo, Bar, Baz}` =>  multiple require
+  - `import MyApp.{Foo, Bar, Baz}` => multiple import
+  
+  All modules are defines inside `Elixir` namespace but it can be omitted for convenience.
+  `alias`, `require` and `import` are lexically scoped, which means that it will be valid just inside the scope it was defined. This is not a global scope.
+
+  `require` is usually used to require Elixir macro code:
+
+  ```elixir
+  Integer.is_odd(3) #=> ** (CompileError): you must require Integer before invoking the macro Integer.is_odd/1
+  require Integer
+  Integer.is_odd(3) #=> true
+  ```
+`use` call `__using__` when the module is being used:
+
+```elixir
+defmodule Fruit do
+  defmacro __using__(option: option) do
+    IO.puts "options=#{inspect option}"
+    quote do: IO.puts "Using Fruit module"
+  end
+end
+
+defmodule Meal do
+  use Fruit, option: :hello
+end
+###Result###
+#options=:hello
+#Using Fruit module
+#:ok
+```
+
+## Meta Programming
+---
+
+- `quote` => shows AST (Abstract Syntax Tree)
+```elixir
+quote do: 2 * 2 == 4
+#=> {
+#=>   :==,
+#=>   [context: Elixir, import: Kernel],
+#=>   [
+#=>     {
+#=>       :*,
+#=>       [context: Elixir, import: Kernel],
+#=>       [2, 2]
+#=>     },
+#=>     4
+#=>   ]
+#=> }
+```
+
+## Erlang Libraries
+---
+
+- :crypto => crypto functions like `:crypto.hash/2`
+- `:io` => io functions like `:io.format/2`
+- `:digraph` => deal with digraphs
+- `:ets` => large data structure in memory
+- `:dets` => large data structure on disk
+- `:math` => math functions like `:math.pi/0`
+- `:queue` => first-in first-out structure
+- `:rand` => rand functions like `:rand.uniform/0`
+- `:zip` => handle zip files
+- `:zlib` => handle gzip files
