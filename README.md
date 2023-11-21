@@ -873,6 +873,9 @@ When capturing you can use the function/operator with its arity.
 (&{:ok, [&1]}).(:foo) #=> {:ok, [:foo, :bar]}
 (&[&1, &2]).(:foo, :bar) #=> [:foo, :bar]
 (&[&1 | [&2]]).(:foo, :bar) #=> [:foo, :bar]
+#####################
+add3 = (&(&1+&2))
+add3.(1,2)
 ```
 
 
