@@ -322,3 +322,409 @@ embedded expression: "#{1 + 3}"
 ```
 - The runtime doesn’t distinguish between a list of integers and a character list.
 - A **Char List** is a List of code points where all elements are valid characters. Char Lists are surrounded by single-quote and are ***usually used as arguments to some old Erlang code***.
+  
+### How to define Lambda function and use it
+```elixir
+square = fn x ->
+  x * x
+end
+
+iex(2)> square.(24)
+square.(24)
+576
+```
+- The dot operator is to make the code explicit such that you know an anonymous function is being called.
+  
+- **Capture** makes us to make full function qualifier as lambda
+```elixir
+Enum.each([1, 2, 3, 4], &IO.puts/1)
+
+iex(4)> Enum.each([1, 2, 3, 4], &IO.puts/1)
+1
+2
+3
+4
+:ok
+```
+
+The closure capture doesn’t affect the previous defined lambda that references the same symbolic name
+```elixir
+outside_var = 5
+lambda = fn -> IO.puts(outside_var) end
+outside_var = 6
+lambda.() #=> 5
+```
+
+### other types
+
+- Time and date
+```elixir
+date = ~D[2008-09-30]
+time = ~T[11:59:12]
+naive_datetime = ~N[2018-01-31 11:59:12.000007]
+```
+
+- Appeding IO list is 0(1), very usefull to increamentaly builda stream of bytes
+```elixir
+iolist = []
+iolist = [iolist, "This"]
+iolist = [iolist, "is"]
+iolist = [iolist, "Amazing"]
+
+iex(20)> iolist = []
+iex(21)> [[], "This"]
+iex(22)> [[[], "This"], "is"]
+iex(23)> [[[[], "This"], "is"], "Amazing"]
+iex(24)> IO.puts(iolist)
+IO.puts(iolist)
+ThisisAmazing
+:ok
+```
+
+#### How to check the and load additional code paths
+- load additional code path from command-line when started erlang runtime
+```elixir 
+$ iex -pa my/code/path -pa another/code/path # from command-line to load additional code path 
+```
+
+- once start runtime, check current loaded path
+```elixir
+:code.get_path # check path 
+```
+
+### How to dynamically call a function
+```elixir
+apply(IO, :puts, ["Dynamic function call."])
+```
+###  How to run a single script
+- Create `.exs` file
+```elixir
+defmodule MyModule do
+  def run  do
+    IO.puts("Called Mymodule.run")
+  end
+end
+
+# Code outside of a module is executed immediately
+MyModule.run
+```
+- On terminal
+```elixir
+elixir script.exs
+``` 
+- With `--no-halt`, it will make the BEAM instance keep running. Useful when your script start other concurrent tasks.
+
+###  How to get current time
+
+```elixir
+iex(28)> {_, time} = :calendar.local_time()
+{{2022, 2, 11}, {13, 32, 10}}
+iex(29)> time 
+time 
+{13, 32, 10}
+```
+
+###  How to handle exception error in guard
+- If an error is raised from inside the guard, it won’t be propagated. And the guard expression will return false. The corresponding clause won’t match.
+
+### How to match the content of variable, ^ (pin) operator
+```elixir
+iex(30)> expected_name = "bob"
+expected_name = "bob"
+"bob"
+iex(31)> {^expected_name, age} = {"bob", 25}
+{^expected_name, age} = {"bob", 25}
+{"bob", 25}
+iex(32)> age 
+age 
+25
+```
+
+### How to check the type of a variable
+
+```elixir
+#from REPL/IEX
+iex(10)> i x
+i x
+Term
+  1
+Data type
+  Integer
+Reference modules
+  Integer
+Implemented protocols
+  IEx.Info, Inspect, List.Chars, String.Chars
+
+#from code
+
+defmodule Util do
+    def typeof(a) do
+        cond do
+            is_float(a)    -> "float"
+            is_number(a)   -> "number"
+            is_atom(a)     -> "atom"
+            is_boolean(a)  -> "boolean"
+            is_binary(a)   -> "binary"
+            is_function(a) -> "function"
+            is_list(a)     -> "list"
+            is_tuple(a)    -> "tuple"
+            true           -> "idunno"
+        end    
+    end
+end
+```
+
+
+###  How to chain multiple pattern matching using `with`
+
+```elixir
+defmodule ChainPattern do
+  # define some helper function
+  def extract_login(%{"login" => login}) do
+    {:ok, login}
+  end
+  def extract_login(_) do
+    {:error, "login missed"}
+  end
+
+  def extract_email(%{"email" => email}) do
+    {:ok, email}
+  end
+  def extract_email(_) do
+    {:error, "email missed"}
+  end
+
+  def extract_password(%{"password" => password}) do
+    {:ok, password}
+  end
+  def extract_password(_) do
+    {:error, "password missed"}
+  end
+
+
+  def extract_info(submitted) do
+    with {:ok, login} <-extract_login(submitted),
+      {:ok, email} <-extract_email(submitted),
+      {:ok, password} <-extract_password(submitted) do
+      {:ok, %{login: login, email: email, password: password}}
+    end
+  end
+end
+
+submitted = %{
+  "login" => "alice",
+  "email" => "some_email",
+  "password" => "password",
+  "other_field" => "some_value",
+  "yet_another_not_wanted_field" => "..."
+}
+
+# iex(20)> ChainPattern.extract_info(submitted)
+# ChainPattern.extract_info(submitted)
+# {:ok, %{email: "some_email", login: "alice", password: "password"}}
+```
+
+### How to update hierachical data
+
+- In general
+  - We can’t directly modify part of it that resides deep in its tree.
+  - We have to walk down the tree to particular part that needs to be modified, and then transform it and all of its ancestors.
+  - The result is a copy of the entire model.
+- Useful macros from Kernel:
+  - put_in/2
+  - put_in/3
+  - get_in/2
+  - update_in/2
+  - get_and_update_in/2
+- Those macros rely on the **Access** module. **i.e**: `ie`
+
+### How to register a process/ name a process
+
+```elixir
+Process.register(self(), :some_name)
+
+send(:some_name, :msg)
+receive do
+  msg -> IO.puts("received #{msg}")
+end
+```
+
+### How to handle unlimited process mailbox problem
+
+- If a message is not match, it will be stored in mailbox with unlimited number. If we don’t process them, they will **slow down the system** and even **crash** the system when all memory is consumed.
+
+### How to implement a general server process
+
+- In general, there are 5 things to do:
+  - spawn a seperate process
+  - loop to infinite in that process
+  - receive message
+  - receive message
+  - maintain state
+
+#### How to debug using  `inspect`
+
+Check the representation of a struct
+
+```elixir
+Fraction.new(1,4)
+|> IO.inspect() 
+|> Fraction.add(Fraction.new(1,4))
+|> IO.inspect()
+|> Fraction.value()
+
+# %Fraction{a: 1, b: 4}
+# iex(70)> %Fraction{a: 1, b: 4}
+# %Fraction{a: 1, b: 4}
+# iex(71)> %Fraction{a: 8, b: 16}
+# iex(72)> %Fraction{a: 8, b: 16}
+# %Fraction{a: 8, b: 16}
+# iex(73)> 0.5
+```
+
+### How to get the number of currently running process
+```elixir
+:erlang.system_info(:process_count)
+```
+
+### How state is maintained in server process
+
+- In plain server process implementation
+State is passed as argument in loop clause. 
+- State is modified (new state) as the result of callback module’s message handling.
+- This means the callback module’s `handle_call/2` and `handle_cast/2` need to pass state as argument
+
+- In **GenServer**
+  - State is passed in from callback module's interface as argument.
+  - state is passed in in `handle_cast/2` as argument
+  
+###  How to create a singleton of a module
+- Implement `GenServer` in your module.
+```elixir
+defmodule Mod do
+  def start do
+    # locally register the process, make sure only one instance of the database process.
+    GenServer.start(__MODULE__, nil, name: __MODULE__)
+  end
+end
+```
+
+
+### How to use elixir to request access token using `Poison`
+
+```elixir
+defmodule Script do
+  @secret "84G7Q~JiELHPu3XuNKqckEB1eavVnMpHmnoZh"
+  @client_id "2470ca86-3843-4aa2-95b8-97d3a912ff69"
+  @tenant "72f988bf-86f1-41af-91ab-2d7cd011db47"
+  @scope "https://microsoft.onmicrosoft.com/3b4ae08b-9919-4749-bb5b-7ed4ef15964d/.default"  
+  @moduledoc """
+  A HTTP client for doing RESTful action for DeploymentService.
+  """
+  def request_access_token() do
+    url = "https://login.microsoftonline.com/#{@tenant}/oauth2/v2.0/token"
+
+    case HTTPoison.post(url, urlencoded_body(), header()) do
+      {:ok, %HTTPoison.Response{status_code: 200, body: body}}  ->
+
+        body
+        |> Poison.decode
+        |> fetch_access_token
+        # |> IO.puts
+
+      {:ok, %HTTPoison.Response{status_code: 404}} ->
+        IO.puts "Not found :("
+      {:error, %HTTPoison.Error{reason: reason}} ->
+        IO.inspect reason      
+    end
+  end
+
+  def trigger_workflow(token) do
+    definition_name = "AuroraK8sDynamicCsi"
+    url = "https://xscndeploymentservice.westus2.cloudapp.azure.com/api/Workflow?definitionName=#{definition_name}"
+    HTTPoison.post(
+      url,
+      json_body(),
+      [
+        {"Content-type", "application/json"},
+        {"Authorization", "Bearer #{token}"},
+        {"accept", "text/plain"}])
+  end
+
+  def test() do
+    request_access_token()
+    |> trigger_workflow
+  end
+
+  def fetch_access_token({:ok, %{"access_token" => access_token}}) do
+    access_token
+  end
+
+  def header() do
+    [{"Content-type", "application/x-www-form-urlencoded"}]
+  end
+
+  def urlencoded_body() do
+    %{"client_id" => @client_id,
+      "client_secret" => @secret,
+      "scope" => @scope,
+      "grant_type" => "client_credentials"}
+    |> URI.encode_query
+  end
+
+  def json_body() do
+    %{
+      SubscriptionId: "33922553-c28a-4d50-ac93-a5c682692168",
+      DeploymentLocation: "East US 2 EUAP",
+      Counter: "1",
+      AzureDiskStorageClassAsk: "Random",
+      AzureDiskPvcSize: "13"
+    }
+    |> Poison.encode!
+  end
+end
+```
+
+### How to do OAuth
+ - using Pow
+
+
+### How to check a module’s available functions
+- <MODULE_NAME>.__info__(:functions)
+```elixir
+KeyValueStore.__info__(:functions)
+[get: 2, handle_call: 2, handle_cast: 2, init: 0, put: 3, start: 0]
+```
+
+### How to represent a grid
+1. using Multidimensional Arrays
+2. Elixir Forum
+3. Own Implementation
+   
+
+### How to produce permutation and combination from list 
+- using Comb 
+
+### Difference between alias, use, require and import in Elixir
+
+1. `alias` is used to give shortcut names for a model.
+2. `import`: Aliases are great for shortening module names but what if we use functions from given module extensively and want to skip using module name part?
+`import` imports all public functions and macros from given module.
+3. `require` is like import + alias while different from either `import` or `alias`.
+   - It is used like `alias`, but different from it that it will compile module first.
+   - So, if a module contains a macro, and we want to use as SomeModule.SomeMacro, `require` will work but not `alias`.
+4. `use` allow us to **inject** any code in the current module
+
+
+[Note on Phoenix](image.png)
+
+### Some notes
+
+- Always keep in mind that a Boolean is just an atom that has a value of true or false.
+- short-circuit operators: `||`, `&&`, `!`
+  - `||` return the first expression that isn't falsy. **Eg**:
+```elixir
+read_cache || read_from_disk || read_from_database
+```
+
+[Link for More](https://zwpdbh.github.io/elixir-programming/elixir-cheatsheet.html)
