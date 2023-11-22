@@ -159,6 +159,13 @@ end
 
 ## How to process binary
 
+# <u>Note<u>
+
+- While **all binaries are bitstrings**, **not all bitstrings are binaries**.
+- Strings are binaries
+- Binaries have have values which are divisible by 8 **i.e** `bytes` **e.g** 8, 16, 32, 64, 128
+- Bitstrings have  values which are not divisible by 8 **e.g** 11,23,43,13, 7
+
 - A binary is a chunk of byte
 - Create binary by enclosing the byte sequence
 `<<1,2,3>>`
@@ -231,3 +238,87 @@ iex> "hełło" <> <<0>>
 iex> IO.inspect("hełło", binaries: :as_binaries)
 <<104, 101, 197, 130, 197, 130, 111>>
 ```
+## How to (pattern) match on a binary of unknown size
+```elixir
+iex> <<0, 1, x::binary>> = <<0, 1, 2, 3>>
+<<0, 1, 2, 3>>
+iex> x
+<<2, 3>>
+```
+  - Matching on arbitrary length can only be done at end of the pattern and not anywhere else.
+  - If you have the data which can be arbitrary bit length then you can add `bitstring` instead, so the pattern now looks like.
+
+```elixir
+<<header :: size(8), data :: bitstring>>
+```
+
+###  How to match n bytes in a binary
+```elixir
+iex> <<head::binary-size(2), rest::binary>> = <<0, 1, 2, 3>>
+<<0, 1, 2, 3>>
+iex> head
+<<0, 1>>
+iex> rest
+<<2, 3>>
+```
+
+## How to pattern match on string with multibyte characters
+
+```elixir
+iex> <<x::utf8, rest::binary>> = "über"
+"über"
+iex> x == ?ü
+true
+iex> rest
+"ber"
+```
+
+  - Therefore, when pattern matching on strings, it is important to use the utf8 modifier.
+  
+#### Example: chuck from png
+- chunck format
+```
+  +--------------+----------------+-------------------+
+  |  Length (32) | Chunk type (32)| Data (Length size)|
+  +--------------+----------------+-------------------+
+  |   CRC (32)   |
+  +--------------+
+```
+- Pattern matching the chunk format
+
+```<<length     :: size(32),
+  chunk_type :: size(32),
+  chunk_data :: binary - size(length),
+  crc        :: size(32),
+  chunks     :: binary>>
+```
+- Another way of defining n byte length is `binary - size(n)`
+- Note: we matched `length` in pattern and used in the pattern as well. In Elixir pattern matching you can use the assigned variable in the pattern following it, thats why we are able to extract the `chunk_data` based on the `length`
+
+
+###  How to represent string
+
+- String in elixir is either a binary or a list type.
+- String inter – evaluate values in string template
+```elixir
+"embedded expression: #{1 + 3}" #=>"embedded expression: 4"
+```
+- How to include quote inside string
+  
+```elixir
+~s("embedded expression": #{1 + 3}) #=> "\"embedded expression\": 4"
+
+""" 
+embedded expression: "#{1 + 3}" 
+"""
+# => "embedded expression: \"4\"\n"
+```
+
+- Aother way to represent string is use single-quote
+```elixir
+'ABC'
+[65, 66, 67] 
+# => they both produce 'ABC'
+```
+- The runtime doesn’t distinguish between a list of integers and a character list.
+- A **Char List** is a List of code points where all elements are valid characters. Char Lists are surrounded by single-quote and are ***usually used as arguments to some old Erlang code***.
