@@ -99,3 +99,5 @@ def on_def(_env, kind, name, args, guards, body)
 @on_load :load_check
 def load_check
 ```
+
+## [For More Cheatshests](https://devhints.io/phoenix-ecto)
